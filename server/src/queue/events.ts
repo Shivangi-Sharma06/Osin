@@ -55,3 +55,44 @@ export async function publishProgress(
     // Progress streaming must never break the pipeline itself.
   }
 }
+
+// ---- Stream reading (Task 7 SSE) ----
+
+export interface StreamEntry {
+  id: string;
+  event: ProgressEvent;
+}
+
+/**
+ * Read progress events after `lastId`. Blocks up to `blockMs` when there is
+ * nothing new — used by the SSE endpoint to tail live updates.
+ */
+export async function readEventsSince(
+  investigationId: string,
+  lastId: string,
+  blockMs: number,
+  reader?: Redis,
+): Promise<StreamEntry[]> {
+  const client = reader ?? getPublisher();
+  const res = await client.xread(
+    'BLOCK',
+    blockMs,
+    'STREAMS',
+    eventsKey(investigationId),
+    lastId,
+  );
+  if (!res) return [];
+  const out: StreamEntry[] = [];
+  for (const [, entries] of res) {
+    for (const [entryId, fields] of entries) {
+      const idx = fields.indexOf('data');
+      if (idx === -1) continue;
+      try {
+        out.push({ id: entryId, event: JSON.parse(fields[idx + 1] ?? '{}') as ProgressEvent });
+      } catch {
+        // skip malformed entry
+      }
+    }
+  }
+  return out;
+}

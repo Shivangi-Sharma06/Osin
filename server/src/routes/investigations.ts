@@ -2,6 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../config.js';
 import { recordAudit } from '../services/audit.js';
 import { enqueueInvestigation } from '../queue/queues.js';
+import { readEventsSince } from '../queue/events.js';
+import { createRedisConnection } from '../queue/connection.js';
 import { enabledCollectorsFor } from '../collectors/registry.js';
 import type { InputType } from '../collectors/types.js';
 import {
@@ -94,6 +96,80 @@ export const investigationRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/investigations', async () => {
     return { investigations: await listInvestigations(50) };
+  });
+
+  /**
+   * SSE stream of pipeline progress (Task 7): replays the Redis Stream
+   * history, then tails live updates until a terminal event arrives.
+   */
+  app.get<{ Params: { id: string } }>('/investigations/:id/events', async (request, reply) => {
+    const { id } = request.params;
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      reply.code(400);
+      return { error: 'invalid_id' };
+    }
+    const inv = await getInvestigation(id);
+    if (!inv) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    reply.raw.write('retry: 2000\n\n');
+
+    const reader = createRedisConnection();
+    let closed = false;
+    request.raw.on('close', () => {
+      closed = true;
+    });
+
+    const send = (event: unknown): void => {
+      reply.raw.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
+    };
+
+    try {
+      let lastId = '0';
+      let sawAny = false;
+      const deadline = Date.now() + 5 * 60_000; // hard cap on stream lifetime
+      while (!closed && Date.now() < deadline) {
+        const batch = await readEventsSince(id, lastId, 4000, reader);
+        for (const entry of batch) {
+          lastId = entry.id;
+          sawAny = true;
+          send(entry.event);
+          if (entry.event.type === 'completed' || entry.event.type === 'failed') {
+            closed = true;
+            break;
+          }
+        }
+        if (!sawAny && inv.status === 'completed') {
+          // Investigation finished before its stream existed (or was trimmed):
+          // synthesize a terminal event so clients can finish cleanly.
+          const results = await getInvestigationResults(id);
+          send({ type: 'completed', found: results.length > 0, at: new Date().toISOString() });
+          break;
+        }
+        if (!sawAny && inv.status === 'failed') {
+          send({ type: 'failed', error: inv.error ?? 'failed', at: new Date().toISOString() });
+          break;
+        }
+      }
+    } catch (err) {
+      request.log.error({ err }, 'sse stream error');
+    } finally {
+      try {
+        reply.raw.end();
+      } catch {
+        // connection already gone
+      }
+      reader.disconnect();
+    }
+    return reply;
   });
 };
 

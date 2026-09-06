@@ -59,3 +59,16 @@ export interface GraphResponse {
   truncated: boolean;
   confidence_threshold: number;
 }
+
+export interface ProgressEventUI {
+  type: string;
+  at: string;
+  platform?: string;
+  found?: boolean;
+  reason?: string | null;
+  identifiers?: number;
+  score?: number;
+  error?: string;
+  input_value?: string;
+  [key: string]: unknown;
+}

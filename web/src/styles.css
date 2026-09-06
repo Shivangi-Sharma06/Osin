@@ -344,3 +344,48 @@ body {
 .root-dot { background: var(--accent); }
 .plain-dot { background: var(--panel-2); border: 1px solid var(--border); }
 .edge-dot { background: var(--teal); width: 14px; height: 3px; border-radius: 2px; }
+
+/* --- Live progress (Task 7) --- */
+
+.progress-panel {
+  margin-top: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.progress-panel h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.progress-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-item {
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  gap: 10px;
+}
+
+.progress-item.stage-completed,
+.progress-item.stage-scoring_completed { color: var(--teal); }
+.progress-item.stage-failed,
+.progress-item.stage-collector_error { color: var(--rose); }
+
+.progress-time {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}

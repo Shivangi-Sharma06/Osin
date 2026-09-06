@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createInvestigation, getInvestigation } from './api';
-import type { InputType, InvestigationResponse } from './types';
+import type { InputType, InvestigationResponse, ProgressEventUI } from './types';
 import { Results } from './Results';
 import { GraphView } from './GraphView';
+import { LiveProgress } from './LiveProgress';
 
 const TABS: Array<{ id: InputType; label: string; placeholder: string }> = [
   { id: 'username', label: 'Username', placeholder: 'e.g. torvalds' },
@@ -29,7 +30,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InvestigationResponse | null>(null);
   const [graphEntity, setGraphEntity] = useState<{ id: string; label: string } | null>(null);
-  const pollRef = useRef<number | null>(null);
+  const [progress, setProgress] = useState<ProgressEventUI[]>([]);
+  const esRef = useRef<EventSource | null>(null);
+
+  useEffect(() => () => esRef.current?.close(), []);
 
   const switchTab = (t: InputType): void => {
     setTab(t);
@@ -46,21 +50,34 @@ export default function App() {
     setError(null);
     setResult(null);
     setGraphEntity(null);
-    if (pollRef.current) window.clearInterval(pollRef.current);
+    setProgress([]);
+    esRef.current?.close();
+
     try {
       const id = await createInvestigation(value.trim(), tab);
-      pollRef.current = window.setInterval(async () => {
+      let finished = false;
+      const finish = async (): Promise<void> => {
+        if (finished) return;
+        finished = true;
+        esRef.current?.close();
         try {
-          const inv = await getInvestigation(id);
-          if (inv.status === 'completed' || inv.status === 'failed') {
-            if (pollRef.current) window.clearInterval(pollRef.current);
-            setResult(inv);
-            setBusy(false);
-          }
-        } catch {
-          // transient poll error — keep polling until it succeeds
+          setResult(await getInvestigation(id));
+        } catch (err) {
+          setError((err as Error).message);
         }
-      }, 1500);
+        setBusy(false);
+      };
+
+      const es = new EventSource(`/api/investigations/${id}/events`);
+      esRef.current = es;
+      es.addEventListener('progress', (ev) => {
+        const data = JSON.parse((ev as MessageEvent).data) as ProgressEventUI;
+        setProgress((p) => [...p, data]);
+        if (data.type === 'completed' || data.type === 'failed') void finish();
+      });
+      es.onerror = () => {
+        // Server closes the stream after the terminal event — finish() handles it.
+      };
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -115,6 +132,7 @@ export default function App() {
       </section>
 
       {busy && <p className="status">Running collectors and scoring signals…</p>}
+      <LiveProgress events={progress} />
       {result && <Results result={result} onOpenGraph={setGraphEntity} />}
       {graphEntity && <GraphView root={graphEntity} onClose={() => setGraphEntity(null)} />}
     </div>
