@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config.js';
+import { investigationRoutes } from './routes/investigations.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -12,6 +13,8 @@ export async function buildApp() {
     service: 'osin-api',
     time: new Date().toISOString(),
   }));
+
+  await app.register(investigationRoutes);
 
   return app;
 }

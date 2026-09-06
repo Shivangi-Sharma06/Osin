@@ -31,7 +31,7 @@ export function evaluateProfileExistence(evidence: ScoringEvidence[]): Explanati
   return {
     signal_type: 'platform_profile_exists',
     points: WEIGHTS.existence,
-    human_readable_reason: `Verified public profile${platforms.length > 1 ? 's' : ''} exist on ${platforms.join(', ')}.`,
+    human_readable_reason: `Verified public profile${platforms.length > 1 ? 's' : ''} ${platforms.length > 1 ? 'exist' : 'exists'} on ${platforms.join(', ')}.`,
   };
 }
 

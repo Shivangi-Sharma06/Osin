@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/queue/worker.ts",
     "start": "tsx src/server.ts",
+    "worker": "tsx src/queue/worker.ts",
     "migrate": "tsx src/db/migrate.ts",
     "verify": "tsx src/db/verify.ts",
     "check:github": "tsx scripts/check-github-collector.ts",
@@ -14,7 +16,9 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
+    "bullmq": "^5.34.0",
     "fastify": "^5.2.1",
+    "ioredis": "^5.4.2",
     "pg": "^8.13.1"
   },
   "devDependencies": {

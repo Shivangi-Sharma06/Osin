@@ -120,3 +120,112 @@ export async function insertEvidenceSignals(
   }
   return args.drafts.length;
 }
+
+export async function createMatchCluster(
+  args: {
+    investigation_id: string;
+    primary_entity_id: string;
+    score: number;
+    explanation: unknown;
+  },
+  exec: Queryable = pool,
+): Promise<{ id: string }> {
+  const res = await exec.query<{ id: string }>(
+    `INSERT INTO match_clusters (investigation_id, primary_entity_id, score, explanation, status)
+     VALUES ($1, $2, $3, $4::jsonb, 'finalized') RETURNING id`,
+    [args.investigation_id, args.primary_entity_id, args.score, JSON.stringify(args.explanation)],
+  );
+  return res.rows[0]!;
+}
+
+/** Evidence only becomes user-visible once attached to a scored cluster. */
+export async function attachEvidenceToCluster(
+  investigation_id: string,
+  cluster_id: string,
+  exec: Queryable = pool,
+): Promise<void> {
+  await exec.query(
+    `UPDATE evidence_signals SET cluster_id = $2, status = 'scored'
+     WHERE investigation_id = $1`,
+    [investigation_id, cluster_id],
+  );
+}
+
+export interface ClusterResult {
+  cluster_id: string;
+  score: number;
+  status: string;
+  explanation: Array<{ signal_type: string; points: number; human_readable_reason: string }>;
+  primary_entity: { id: string; label: string } | null;
+  matched_identifiers: Array<{
+    identifier_type: string;
+    value: string;
+    platform: string;
+    url: string | null;
+  }>;
+}
+
+export async function getInvestigationResults(
+  investigation_id: string,
+  exec: Queryable = pool,
+): Promise<ClusterResult[]> {
+  const clusters = await exec.query<{
+    cluster_id: string;
+    score: string;
+    status: string;
+    explanation: ClusterResult['explanation'];
+    entity_id: string | null;
+    entity_label: string | null;
+  }>(
+    `SELECT c.id AS cluster_id, c.score::text AS score, c.status, c.explanation,
+            e.id AS entity_id, e.label AS entity_label
+     FROM match_clusters c
+     LEFT JOIN entities e ON e.id = c.primary_entity_id
+     WHERE c.investigation_id = $1
+     ORDER BY c.score DESC, c.created_at ASC`,
+    [investigation_id],
+  );
+
+  const results: ClusterResult[] = [];
+  for (const row of clusters.rows) {
+    let matched: ClusterResult['matched_identifiers'] = [];
+    if (row.entity_id) {
+      const idents = await exec.query<{
+        identifier_type: string;
+        value: string;
+        platform: string;
+        url: string | null;
+      }>(
+        `SELECT identifier_type, value, platform, url FROM identifiers
+         WHERE entity_id = $1 ORDER BY identifier_type, value`,
+        [row.entity_id],
+      );
+      matched = idents.rows;
+    }
+    results.push({
+      cluster_id: row.cluster_id,
+      score: Number(row.score),
+      status: row.status,
+      explanation: row.explanation ?? [],
+      primary_entity: row.entity_id
+        ? { id: row.entity_id, label: row.entity_label ?? '' }
+        : null,
+      matched_identifiers: matched,
+    });
+  }
+  return results;
+}
+
+export async function listInvestigations(
+  limit = 50,
+  exec: Queryable = pool,
+): Promise<Array<Pick<InvestigationRow, 'id' | 'input_type' | 'input_value' | 'status' | 'created_at'>>> {
+  const res = await exec.query<
+    Pick<InvestigationRow, 'id' | 'input_type' | 'input_value' | 'status' | 'created_at'>
+  >(
+    `SELECT id, input_type, input_value, status, created_at FROM investigations
+     ORDER BY created_at DESC LIMIT $1`,
+    [limit],
+  );
+  return res.rows;
+}
