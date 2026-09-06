@@ -1,4 +1,4 @@
-import type { InputType, InvestigationResponse } from './types';
+import type { GraphResponse, InputType, InvestigationResponse } from './types';
 
 const BASE = '/api';
 
@@ -22,4 +22,10 @@ export async function getInvestigation(id: string): Promise<InvestigationRespons
   const res = await fetch(`${BASE}/investigations/${id}`);
   if (!res.ok) throw new Error(`Failed to fetch investigation (HTTP ${res.status})`);
   return (await res.json()) as InvestigationResponse;
+}
+
+export async function getEntityGraph(entityId: string, depth = 1): Promise<GraphResponse> {
+  const res = await fetch(`${BASE}/entity/${entityId}/graph?depth=${depth}`);
+  if (!res.ok) throw new Error(`Failed to fetch graph (HTTP ${res.status})`);
+  return (await res.json()) as GraphResponse;
 }

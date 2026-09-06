@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config.js';
 import { investigationRoutes } from './routes/investigations.js';
+import { entityRoutes } from './routes/entity.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -16,6 +17,7 @@ export async function buildApp() {
 
   // All v1 routes live under /api (the vite dev proxy forwards /api/* here).
   await app.register(investigationRoutes, { prefix: '/api' });
+  await app.register(entityRoutes, { prefix: '/api' });
 
   return app;
 }

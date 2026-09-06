@@ -62,9 +62,10 @@ export async function createEntity(
 }
 
 /**
- * Insert-or-update an identifier keyed by (identifier_type, value, platform).
- * If the identifier was seen before (possibly under another entity), the row is
- * re-pointed at the current entity, last_seen refreshed and metadata merged.
+ * Insert-or-update an identifier for a specific entity, keyed by
+ * (identifier_type, value, platform, entity_id). Two entities may carry the
+ * SAME observable — that shared observable is what draws an evidence-graph
+ * edge between them (Task 6).
  */
 export async function upsertIdentifierForEntity(
   entity_id: string,
@@ -74,9 +75,8 @@ export async function upsertIdentifierForEntity(
   const res = await exec.query<{ id: string }>(
     `INSERT INTO identifiers (entity_id, identifier_type, value, platform, url, metadata)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-     ON CONFLICT (identifier_type, value, platform) DO UPDATE
-       SET entity_id = EXCLUDED.entity_id,
-           url = COALESCE(EXCLUDED.url, identifiers.url),
+     ON CONFLICT (identifier_type, value, platform, entity_id) DO UPDATE
+       SET url = COALESCE(EXCLUDED.url, identifiers.url),
            metadata = identifiers.metadata || EXCLUDED.metadata,
            last_seen = now()
      RETURNING id`,
@@ -228,4 +228,168 @@ export async function listInvestigations(
     [limit],
   );
   return res.rows;
+}
+
+// ---- Evidence graph (Task 6): depth-limited recursive CTE, never a full dump ----
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  entity_type: string;
+  investigation_id: string | null;
+  identifiers: Array<{ identifier_type: string; value: string; platform: string; url: string | null }>;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  shared_identifier: { identifier_type: string; value: string; platform: string };
+  confidence: number;
+}
+
+export interface EntityGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  depth: number;
+  truncated: boolean;
+}
+
+export async function getEntityGraph(
+  rootEntityId: string,
+  depth: number,
+  limit: number,
+  exec: Queryable = pool,
+): Promise<EntityGraph> {
+  // Depth-limited walk across shared identifiers. UNION (not ALL) prevents
+  // cycles; DISTINCT + LIMIT keeps the payload bounded (progressive disclosure).
+  const { rows: idRows } = await exec.query<{ entity_id: string }>(
+    `WITH RECURSIVE nearby(entity_id, d) AS (
+        SELECT $1::uuid, 0
+      UNION
+        SELECT i2.entity_id, nearby.d + 1
+        FROM nearby
+        JOIN identifiers i1 ON i1.entity_id = nearby.entity_id
+        JOIN identifiers i2 ON i2.identifier_type = i1.identifier_type
+           AND i2.value = i1.value
+           AND i2.platform = i1.platform
+           AND i2.entity_id <> nearby.entity_id
+        WHERE nearby.d < $2::int
+      )
+      SELECT DISTINCT entity_id FROM nearby LIMIT $3::int`,
+    [rootEntityId, depth, limit],
+  );
+  const { rows: countRows } = await exec.query<{ total: string }>(
+    `WITH RECURSIVE nearby(entity_id, d) AS (
+        SELECT $1::uuid, 0
+      UNION
+        SELECT i2.entity_id, nearby.d + 1
+        FROM nearby
+        JOIN identifiers i1 ON i1.entity_id = nearby.entity_id
+        JOIN identifiers i2 ON i2.identifier_type = i1.identifier_type
+           AND i2.value = i1.value
+           AND i2.platform = i1.platform
+           AND i2.entity_id <> nearby.entity_id
+        WHERE nearby.d < $2::int
+      )
+      SELECT count(DISTINCT entity_id)::text AS total FROM nearby`,
+    [rootEntityId, depth],
+  );
+
+  const entityIds = idRows.map((r) => r.entity_id);
+  if (entityIds.length === 0) {
+    return { nodes: [], edges: [], depth, truncated: false };
+  }
+
+  const nodesRes = await exec.query<{
+    id: string;
+    label: string;
+    entity_type: string;
+    investigation_id: string | null;
+  }>(
+    `SELECT id, label, entity_type, investigation_id FROM entities WHERE id = ANY($1::uuid[])`,
+    [entityIds],
+  );
+  const identsRes = await exec.query<{
+    entity_id: string;
+    identifier_type: string;
+    value: string;
+    platform: string;
+    url: string | null;
+  }>(
+    `SELECT entity_id, identifier_type, value, platform, url FROM identifiers
+     WHERE entity_id = ANY($1::uuid[]) ORDER BY identifier_type, value`,
+    [entityIds],
+  );
+
+  const nodes: GraphNode[] = nodesRes.rows.map((n) => ({
+    id: n.id,
+    label: n.label,
+    entity_type: n.entity_type,
+    investigation_id: n.investigation_id,
+    identifiers: identsRes.rows
+      .filter((i) => i.entity_id === n.id)
+      .map((i) => ({
+        identifier_type: i.identifier_type,
+        value: i.value,
+        platform: i.platform,
+        url: i.url,
+      })),
+  }));
+
+  // Edges = entities in the set sharing an observable identifier.
+  const sharedRes = await exec.query<{
+    source: string;
+    target: string;
+    identifier_type: string;
+    value: string;
+    platform: string;
+  }>(
+    `SELECT i1.entity_id AS source, i2.entity_id AS target,
+            i1.identifier_type, i1.value, i1.platform
+     FROM identifiers i1
+     JOIN identifiers i2
+       ON i2.identifier_type = i1.identifier_type
+      AND i2.value = i1.value
+      AND i2.platform = i1.platform
+      AND i2.entity_id <> i1.entity_id
+     WHERE i1.entity_id = ANY($1::uuid[]) AND i2.entity_id = ANY($1::uuid[])`,
+    [entityIds],
+  );
+
+  // Edge confidence is limited by the weaker endpoint's best cluster score.
+  const scoreRes = await exec.query<{ entity_id: string; best: string }>(
+    `SELECT primary_entity_id AS entity_id, MAX(score)::text AS best
+     FROM match_clusters
+     WHERE primary_entity_id = ANY($1::uuid[])
+     GROUP BY primary_entity_id`,
+    [entityIds],
+  );
+  const bestScore = new Map(scoreRes.rows.map((r) => [r.entity_id, Number(r.best)]));
+
+  const edges: GraphEdge[] = [];
+  const seenPairs = new Set<string>();
+  for (const row of sharedRes.rows) {
+    const key = [row.source, row.target].sort().join('|');
+    if (seenPairs.has(key)) continue;
+    seenPairs.add(key);
+    const confidence = Math.min(bestScore.get(row.source) ?? 0, bestScore.get(row.target) ?? 0);
+    edges.push({
+      source: row.source,
+      target: row.target,
+      shared_identifier: {
+        identifier_type: row.identifier_type,
+        value: row.value,
+        platform: row.platform,
+      },
+      confidence,
+    });
+  }
+
+  const total = Number(countRows[0]?.total ?? entityIds.length);
+  return {
+    nodes,
+    edges,
+    depth,
+    truncated: total > entityIds.length,
+  };
 }

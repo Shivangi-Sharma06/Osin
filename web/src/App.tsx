@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { createInvestigation, getInvestigation } from './api';
 import type { InputType, InvestigationResponse } from './types';
 import { Results } from './Results';
+import { GraphView } from './GraphView';
 
 const TABS: Array<{ id: InputType; label: string; placeholder: string }> = [
   { id: 'username', label: 'Username', placeholder: 'e.g. torvalds' },
@@ -27,6 +28,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InvestigationResponse | null>(null);
+  const [graphEntity, setGraphEntity] = useState<{ id: string; label: string } | null>(null);
   const pollRef = useRef<number | null>(null);
 
   const switchTab = (t: InputType): void => {
@@ -43,6 +45,7 @@ export default function App() {
     setBusy(true);
     setError(null);
     setResult(null);
+    setGraphEntity(null);
     if (pollRef.current) window.clearInterval(pollRef.current);
     try {
       const id = await createInvestigation(value.trim(), tab);
@@ -112,7 +115,8 @@ export default function App() {
       </section>
 
       {busy && <p className="status">Running collectors and scoring signals…</p>}
-      {result && <Results result={result} />}
+      {result && <Results result={result} onOpenGraph={setGraphEntity} />}
+      {graphEntity && <GraphView root={graphEntity} onClose={() => setGraphEntity(null)} />}
     </div>
   );
 }

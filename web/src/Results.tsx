@@ -7,7 +7,13 @@ function scoreBand(score: number): 'high' | 'medium' | 'low' {
   return 'low';
 }
 
-function Cluster({ cluster }: { cluster: ClusterResult }) {
+function Cluster({
+  cluster,
+  onOpenGraph,
+}: {
+  cluster: ClusterResult;
+  onOpenGraph: (entity: { id: string; label: string }) => void;
+}) {
   const [open, setOpen] = useState(false);
   const band = scoreBand(cluster.score);
   return (
@@ -21,9 +27,19 @@ function Cluster({ cluster }: { cluster: ClusterResult }) {
           <strong>{cluster.primary_entity?.label ?? 'Unknown entity'}</strong>
           <span className={`confidence confidence-${band}`}>{band} confidence</span>
         </div>
-        <button className="expand-btn" onClick={() => setOpen((o) => !o)}>
-          {open ? 'Hide explanation' : 'Why this score?'}
-        </button>
+        <div className="cluster-actions">
+          {cluster.primary_entity && (
+            <button
+              className="expand-btn"
+              onClick={() => onOpenGraph(cluster.primary_entity!)}
+            >
+              Evidence graph
+            </button>
+          )}
+          <button className="expand-btn" onClick={() => setOpen((o) => !o)}>
+            {open ? 'Hide explanation' : 'Why this score?'}
+          </button>
+        </div>
       </div>
 
       {open && (
@@ -58,7 +74,13 @@ function Cluster({ cluster }: { cluster: ClusterResult }) {
   );
 }
 
-export function Results({ result }: { result: InvestigationResponse }) {
+export function Results({
+  result,
+  onOpenGraph,
+}: {
+  result: InvestigationResponse;
+  onOpenGraph: (entity: { id: string; label: string }) => void;
+}) {
   if (result.status === 'failed') {
     return (
       <p className="status error">
@@ -74,7 +96,7 @@ export function Results({ result }: { result: InvestigationResponse }) {
     <section className="results">
       <h2>Results for “{result.input_value}”</h2>
       {clusters.map((c) => (
-        <Cluster key={c.cluster_id} cluster={c} />
+        <Cluster key={c.cluster_id} cluster={c} onOpenGraph={onOpenGraph} />
       ))}
     </section>
   );

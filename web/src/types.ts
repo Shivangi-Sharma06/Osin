@@ -30,3 +30,32 @@ export interface InvestigationResponse {
   error: string | null;
   results: ClusterResult[] | null;
 }
+
+export interface GraphSharedIdentifier {
+  identifier_type: string;
+  value: string;
+  platform: string;
+}
+
+export interface GraphNodeDTO {
+  id: string;
+  label: string;
+  entity_type: string;
+  investigation_id: string | null;
+  identifiers: Array<{ identifier_type: string; value: string; platform: string; url: string | null }>;
+}
+
+export interface GraphEdgeDTO {
+  source: string;
+  target: string;
+  shared_identifier: GraphSharedIdentifier;
+  confidence: number;
+}
+
+export interface GraphResponse {
+  nodes: GraphNodeDTO[];
+  edges: GraphEdgeDTO[];
+  depth: number;
+  truncated: boolean;
+  confidence_threshold: number;
+}
