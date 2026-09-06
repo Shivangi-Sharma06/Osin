@@ -1,44 +1,44 @@
-# novi
+# OSIN — OSINT Confidence-Scoring Tool
 
-novi is a local-first OSINT correlation and identity-disambiguation demo. It does not treat a shared name as proof of identity; it stores collected identifiers, scores evidence signals, and exposes the exact `explanation_json` used by the UI.
+Full-stack OSINT correlation tool. Every result carries a **confidence score + reasoning
+breakdown** — raw collector output is never shown to the user unscored.
 
-This first milestone includes:
+- Relational Postgres only (no graph database; graph shape is derived on demand via recursive CTEs)
+- Redis + BullMQ job queue (async, never blocking)
+- Rate-limited, individually togglable collectors
+- No login-wall bypass / anti-bot evasion anywhere
 
-- FastAPI backend with SQLite persistence.
-- GitHub API collector and normalizer.
-- Additive scoring for username similarity, bio/name similarity, location, employer, timezone, and account-age evidence.
-- `explanation_json` as the single source of truth for confidence explanations.
-- React web dashboard with self-audit / consented / public-figure lookup scope, search, progressive graph expansion, and a confidence detail panel.
+## Layout
 
-## Run locally
-
-### Backend
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn novi.main:app --reload --port 8000
+```
+server/   Node + TypeScript + Fastify API, worker, scoring engine, collectors
+web/      Vite + React dashboard (added in Task 5)
 ```
 
-Optional:
+## Local infrastructure (no root required)
+
+Postgres 18 user-space cluster on port 5433:
 
 ```bash
-export GITHUB_TOKEN=ghp_...
+mkdir -p ~/.local/share/osin
+initdb -D ~/.local/share/osin/pg -U osin --auth=trust --no-locale --encoding=UTF8
+pg_ctl -D ~/.local/share/osin/pg -o "-p 5433 -c listen_addresses=127.0.0.1" -l ~/.local/share/osin/pg-server.log start
+createdb -h 127.0.0.1 -p 5433 -U osin osin
 ```
 
-### Frontend
+Redis (built from source into ~/.local/share/osin/redis/bin):
 
 ```bash
-cd frontend
+~/.local/share/osin/redis/bin/redis-server --port 6379 --daemonize yes --dir /tmp
+```
+
+## Setup
+
+```bash
+cp .env.example .env    # adjust if needed (GITHUB_TOKEN recommended for real rate limits)
 npm install
-npm run dev
+npm run db:migrate      # applies server/migrations/*.sql
+npm run db:verify       # inserts+queries a dummy row in every table, then rolls back
+npm run dev:server      # API on http://127.0.0.1:4000
+npm test                # scoring engine unit tests
 ```
-
-Open the Vite URL shown in the terminal. The frontend expects the backend at `http://localhost:8000`.
-
-## Safety boundaries
-
-novi is designed for self-audits, explicitly consented test accounts, and clearly public figures with public data. The current collector uses the official GitHub API only. It does not perform unbounded scraping, does not browse autonomously, and does not use a graph database.
-

@@ -1,0 +1,18 @@
+{
+  "name": "osin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OSINT correlation tool with confidence scoring — relational Postgres, BullMQ job queue, scored+explained results only.",
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "db:migrate": "npm run migrate -w server",
+    "db:verify": "npm run verify -w server",
+    "dev:server": "npm run dev -w server",
+    "test": "npm run test -w server"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
