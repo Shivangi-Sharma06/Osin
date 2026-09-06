@@ -98,6 +98,38 @@ export const investigationRoutes: FastifyPluginAsync = async (app) => {
     return { investigations: await listInvestigations(50) };
   });
 
+  app.post('/self-audit', async (request, reply) => {
+    const body = (request.body ?? {}) as { identifiers?: unknown };
+    const identifiers = Array.isArray(body.identifiers) ? body.identifiers : [];
+    const jobs: Array<{ investigation_id: string; input_type: InputType; input: string }> = [];
+
+    for (const item of identifiers.slice(0, 8)) {
+      const row = item as { input_type?: unknown; input?: unknown };
+      const inputType = typeof row.input_type === 'string' ? row.input_type : '';
+      const input = typeof row.input === 'string' ? row.input.trim() : '';
+      if (!['username', 'email', 'phone', 'name'].includes(inputType) || !input) continue;
+      const shapeError = validateInput(inputType as InputType, input);
+      if (shapeError) continue;
+      const inv = await createInvestigation(inputType, input, 'queued');
+      await enqueueInvestigation(inv.id);
+      jobs.push({ investigation_id: inv.id, input_type: inputType as InputType, input });
+      await recordAudit({
+        investigation_id: inv.id,
+        actor: 'api',
+        action: 'self_audit_job_enqueued',
+        subject: input,
+        details: { input_type: inputType },
+      });
+    }
+
+    if (jobs.length === 0) {
+      reply.code(400);
+      return { error: 'invalid_self_audit_identifiers', message: 'Provide at least one valid username, email, phone, or name.' };
+    }
+    reply.code(202);
+    return { jobs };
+  });
+
   /**
    * SSE stream of pipeline progress (Task 7): replays the Redis Stream
    * history, then tails live updates until a terminal event arrives.

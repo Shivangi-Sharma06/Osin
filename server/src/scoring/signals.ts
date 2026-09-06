@@ -21,6 +21,8 @@ export const WEIGHTS = {
   nameFull: 10,
   namePartial: 5,
   nameMismatch: -10,
+  domainExact: 35,
+  domainEvidence: 45,
 } as const;
 
 /** Positive base signal: a real public profile/record exists for the searched identifier. */
@@ -36,6 +38,40 @@ export function evaluateProfileExistence(evidence: ScoringEvidence[]): Explanati
     points: WEIGHTS.existence,
     human_readable_reason: `Verified public record${unique.length > 1 ? 's' : ''} ${unique.length > 1 ? 'exist' : 'exists'} on ${unique.join(', ')}.`,
   };
+}
+
+export function evaluateDomainSignals(
+  searched: string,
+  candidates: CandidateRef[],
+  evidence: ScoringEvidence[],
+): ExplanationEntry[] {
+  const entries: ExplanationEntry[] = [];
+  const normalized = searched.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+  const exact = candidates.find((c) => c.value.toLowerCase().replace(/^www\./, '') === normalized);
+  if (exact) {
+    entries.push({
+      signal_type: 'domain_match',
+      points: WEIGHTS.domainExact,
+      human_readable_reason: `Domain "${exact.value}" was confirmed by ${exact.platform}.`,
+    });
+  }
+
+  const domainSignals = [
+    'domain_dns_records',
+    'domain_whois_rdap',
+    'domain_certificate_transparency',
+    'domain_tech_stack',
+  ];
+  const seen = evidence.filter((e) => domainSignals.includes(e.signal_type));
+  if (seen.length > 0) {
+    const platforms = [...new Set(seen.map((e) => e.source_platform))];
+    entries.push({
+      signal_type: 'domain_public_evidence',
+      points: Math.min(WEIGHTS.domainEvidence, platforms.length * 12),
+      human_readable_reason: `Public domain evidence was collected from ${platforms.join(', ')}.`,
+    });
+  }
+  return entries;
 }
 
 /**

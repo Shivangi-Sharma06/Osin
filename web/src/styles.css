@@ -56,6 +56,11 @@ body {
   display: flex;
   gap: 6px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.mode-tabs {
+  margin-bottom: 16px;
 }
 
 .tab {
@@ -80,7 +85,9 @@ body {
   gap: 10px;
 }
 
-.search-row input {
+.search-row input,
+.country-select,
+.self-audit textarea {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -90,7 +97,24 @@ body {
   font-size: 15px;
 }
 
-.search-row input:focus {
+.country-select {
+  flex: 0 0 86px;
+}
+
+.self-audit {
+  display: grid;
+  gap: 10px;
+}
+
+.self-audit textarea {
+  min-height: 132px;
+  resize: vertical;
+  width: 100%;
+}
+
+.search-row input:focus,
+.country-select:focus,
+.self-audit textarea:focus {
   outline: 1px solid var(--accent);
   border-color: var(--accent);
 }

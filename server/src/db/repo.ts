@@ -438,3 +438,41 @@ export async function saveClusterSummary(
     [cluster_id, summary, model],
   );
 }
+
+export interface EntityTimeline {
+  entity_id: string;
+  snapshots: Array<{
+    id: string;
+    url: string;
+    source: string;
+    captured_at: Date;
+    data: Record<string, unknown>;
+  }>;
+  current_observations: Array<{
+    platform: string;
+    value: string;
+    url: string | null;
+    first_seen: Date;
+    last_seen: Date;
+    metadata: Record<string, unknown>;
+  }>;
+}
+
+export async function getEntityTimeline(
+  entity_id: string,
+  exec: Queryable = pool,
+): Promise<EntityTimeline | null> {
+  const exists = await exec.query<{ id: string }>('SELECT id FROM entities WHERE id = $1', [entity_id]);
+  if (!exists.rows[0]) return null;
+  const snapshots = await exec.query<EntityTimeline['snapshots'][number]>(
+    `SELECT id, url, source, captured_at, data FROM snapshots
+     WHERE entity_id = $1 ORDER BY captured_at DESC LIMIT 50`,
+    [entity_id],
+  );
+  const current = await exec.query<EntityTimeline['current_observations'][number]>(
+    `SELECT platform, value, url, first_seen, last_seen, metadata
+     FROM identifiers WHERE entity_id = $1 ORDER BY last_seen DESC LIMIT 50`,
+    [entity_id],
+  );
+  return { entity_id, snapshots: snapshots.rows, current_observations: current.rows };
+}

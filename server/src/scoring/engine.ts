@@ -1,5 +1,6 @@
 import {
   evaluateBioSignal,
+  evaluateDomainSignals,
   evaluateNameSignal,
   evaluatePhoneSignal,
   evaluateProfileExistence,
@@ -48,6 +49,16 @@ export function scoreCluster(input: ScoringInput): ScoreResult {
 
   const existence = evaluateProfileExistence(input.evidence);
   if (existence) entries.push(existence);
+
+  if (input.input_type === 'domain') {
+    entries.push(
+      ...evaluateDomainSignals(
+        searched,
+        extractValueCandidates(input.identifiers, 'domain'),
+        input.evidence,
+      ),
+    );
+  }
 
   // Phone-specific signal (Task 9): validated + E.164-normalized number.
   if (input.input_type === 'phone') {

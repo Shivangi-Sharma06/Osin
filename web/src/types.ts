@@ -1,4 +1,4 @@
-export type InputType = 'username' | 'name' | 'phone' | 'email';
+export type InputType = 'username' | 'name' | 'phone' | 'email' | 'domain';
 
 export interface ExplanationEntry {
   signal_type: string;
@@ -71,4 +71,10 @@ export interface ProgressEventUI {
   error?: string;
   input_value?: string;
   [key: string]: unknown;
+}
+
+export interface SelfAuditJob {
+  investigation_id: string;
+  input_type: InputType;
+  input: string;
 }

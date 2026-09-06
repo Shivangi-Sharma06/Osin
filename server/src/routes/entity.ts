@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../config.js';
 import { getEntityGraph } from '../db/repo.js';
-import { getClusterForSummary, saveClusterSummary } from '../db/repo.js';
+import { getClusterForSummary, getEntityTimeline, saveClusterSummary } from '../db/repo.js';
 import { summarizeCluster } from '../ai/groq.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -78,4 +78,22 @@ export const entityRoutes: FastifyPluginAsync = async (app) => {
       };
     },
   );
+
+  app.get<{ Params: { id: string } }>('/entity/:id/timeline', async (request, reply) => {
+    const { id } = request.params;
+    if (!UUID_RE.test(id)) {
+      reply.code(400);
+      return { error: 'invalid_id' };
+    }
+    const timeline = await getEntityTimeline(id);
+    if (!timeline) {
+      reply.code(404);
+      return { error: 'not_found' };
+    }
+    return {
+      ...timeline,
+      note:
+        'Historical coverage depends on public platform support. Current observations are stored from the first OSIN scan onward.',
+    };
+  });
 };

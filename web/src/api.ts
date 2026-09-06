@@ -1,4 +1,4 @@
-import type { GraphResponse, InputType, InvestigationResponse } from './types';
+import type { GraphResponse, InputType, InvestigationResponse, SelfAuditJob } from './types';
 
 const BASE = '/api';
 
@@ -47,4 +47,19 @@ export async function getClusterSummary(
   );
   if (!res.ok) throw new Error(`Failed to fetch AI summary (HTTP ${res.status})`);
   return (await res.json()) as ClusterSummaryResponse;
+}
+
+export async function createSelfAudit(
+  identifiers: Array<{ input: string; input_type: InputType }>,
+): Promise<SelfAuditJob[]> {
+  const res = await fetch(`${BASE}/self-audit`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identifiers }),
+  });
+  const body = (await res.json()) as { jobs?: SelfAuditJob[]; message?: string; error?: string };
+  if (!res.ok || !body.jobs) {
+    throw new Error(body.message ?? body.error ?? `Request failed (HTTP ${res.status})`);
+  }
+  return body.jobs;
 }

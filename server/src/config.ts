@@ -46,6 +46,10 @@ export interface CollectorsConfig {
   email: CollectorConfig;
   phone: CollectorConfig;
   name_search: CollectorConfig;
+  domain_dns: CollectorConfig;
+  domain_whois: CollectorConfig;
+  domain_ct: CollectorConfig;
+  domain_tech: CollectorConfig;
   // New collectors add their keys here.
   [key: string]: CollectorConfig;
 }
@@ -93,6 +97,22 @@ export const config = {
     name_search: {
       enabled: boolEnv('OSIN_COLLECTOR_NAME_SEARCH_ENABLED', true),
       requestsPerMinute: numEnv('OSIN_COLLECTOR_NAME_SEARCH_RPM', 10),
+    },
+    domain_dns: {
+      enabled: boolEnv('OSIN_COLLECTOR_DOMAIN_DNS_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_DOMAIN_DNS_RPM', 20),
+    },
+    domain_whois: {
+      enabled: boolEnv('OSIN_COLLECTOR_DOMAIN_WHOIS_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_DOMAIN_WHOIS_RPM', 10),
+    },
+    domain_ct: {
+      enabled: boolEnv('OSIN_COLLECTOR_DOMAIN_CT_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_DOMAIN_CT_RPM', 6),
+    },
+    domain_tech: {
+      enabled: boolEnv('OSIN_COLLECTOR_DOMAIN_TECH_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_DOMAIN_TECH_RPM', 10),
     },
   } as CollectorsConfig,
 };
