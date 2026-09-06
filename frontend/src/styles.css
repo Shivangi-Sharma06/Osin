@@ -1,0 +1,405 @@
+:root {
+  color: #17212b;
+  background: #f5f7f8;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px clamp(18px, 4vw, 48px) 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.eyebrow,
+.label {
+  margin: 0 0 5px;
+  color: #657386;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1.2rem;
+}
+
+.status-pill,
+.icon-text-btn,
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.status-pill {
+  padding: 0 14px;
+  color: #0f513f;
+  background: #dff5ea;
+  border: 1px solid #b8e4cf;
+  font-weight: 700;
+}
+
+.lookup-band {
+  padding: 20px clamp(18px, 4vw, 48px);
+  background: #ecf1f4;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.lookup-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, auto) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #4d5a69;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 13px;
+  background: #ffffff;
+  border: 1px solid #cdd6df;
+  border-radius: 8px;
+}
+
+.input-row input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: #17212b;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-height: 46px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid #cdd6df;
+  border-radius: 8px;
+}
+
+.segmented button,
+.icon-text-btn,
+.primary-btn {
+  border: 0;
+  cursor: pointer;
+}
+
+.segmented button {
+  padding: 0 10px;
+  color: #4d5a69;
+  background: transparent;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.segmented button.active {
+  color: #ffffff;
+  background: #263238;
+}
+
+.primary-btn {
+  padding: 0 20px;
+  color: #ffffff;
+  background: #1b998b;
+  font-weight: 800;
+}
+
+.primary-btn:disabled,
+.icon-text-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.error {
+  margin: 12px 0 0;
+  color: #9d1c22;
+  font-weight: 700;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 1px;
+  min-height: 0;
+  background: #dce2e8;
+}
+
+.graph-surface,
+.detail-panel {
+  background: #ffffff;
+}
+
+.graph-surface {
+  min-height: 560px;
+  padding: 22px clamp(16px, 3vw, 34px);
+}
+
+.detail-panel {
+  padding: 22px;
+  overflow: auto;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.panel-header.compact {
+  margin-bottom: 24px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #4d5a69;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.icon-text-btn {
+  padding: 0 13px;
+  color: #17212b;
+  background: #eef3f6;
+  border: 1px solid #cdd6df;
+  font-weight: 800;
+}
+
+.graph-canvas {
+  width: 100%;
+  min-height: 460px;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+  background:
+    linear-gradient(#eef3f6 1px, transparent 1px),
+    linear-gradient(90deg, #eef3f6 1px, transparent 1px),
+    #fbfcfd;
+  background-size: 28px 28px;
+}
+
+.edge {
+  stroke: url(#edgeGradient);
+  stroke-width: 3;
+  opacity: 0.85;
+}
+
+.edge-label {
+  fill: #4d5a69;
+  font-size: 13px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node circle {
+  fill: #ffffff;
+  stroke: #3867d6;
+  stroke-width: 3;
+  filter: drop-shadow(0 12px 18px rgb(31 45 61 / 0.14));
+}
+
+.graph-node.entity circle {
+  fill: #263238;
+  stroke: #1b998b;
+}
+
+.graph-node.selected circle {
+  stroke: #d95d39;
+  stroke-width: 5;
+}
+
+.graph-node text {
+  fill: #17212b;
+  font-size: 13px;
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.graph-node.entity text {
+  fill: #ffffff;
+}
+
+.node-meta {
+  font-size: 11px !important;
+  opacity: 0.82;
+}
+
+.node-detail {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.node-detail h3 {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+}
+
+.node-detail a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: #3867d6;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.node-detail p {
+  margin-bottom: 7px;
+  color: #4d5a69;
+}
+
+.muted {
+  color: #657386;
+}
+
+.explanation-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.explanation-item {
+  padding: 14px;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.explanation-item div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.explanation-item strong {
+  color: #1b998b;
+}
+
+.explanation-item p:last-child {
+  margin-bottom: 0;
+  color: #4d5a69;
+  line-height: 1.45;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 920px) {
+  .topbar,
+  .lookup-form,
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    display: grid;
+  }
+
+  .lookup-form {
+    align-items: stretch;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .detail-panel {
+    border-top: 1px solid #dce2e8;
+  }
+}
+
+@media (max-width: 560px) {
+  .segmented {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar,
+  .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .graph-canvas {
+    min-height: 360px;
+  }
+}
+
