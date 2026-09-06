@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getClusterSummary } from './api';
 import type { ClusterResult, InvestigationResponse } from './types';
 
 function scoreBand(score: number): 'high' | 'medium' | 'low' {
@@ -15,7 +16,23 @@ function Cluster({
   onOpenGraph: (entity: { id: string; label: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [ai, setAi] = useState<{ summary: string | null; model: string | null; error: string | null; loading: boolean }>({
+    summary: null,
+    model: null,
+    error: null,
+    loading: false,
+  });
   const band = scoreBand(cluster.score);
+
+  const loadAiSummary = async (): Promise<void> => {
+    setAi((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const res = await getClusterSummary(cluster.cluster_id);
+      setAi({ summary: res.summary, model: res.model, error: res.error, loading: false });
+    } catch (err) {
+      setAi({ summary: null, model: null, error: (err as Error).message, loading: false });
+    }
+  };
   return (
     <article className={`cluster band-${band}`}>
       <div className="cluster-head">
@@ -56,6 +73,21 @@ function Cluster({
               </li>
             ))}
           </ol>
+
+          <div className="ai-summary">
+            {ai.summary ? (
+              <p className="ai-text">
+                {ai.summary}
+                {ai.model && <span className="ai-model"> — {ai.model}</span>}
+              </p>
+            ) : (
+              <button className="expand-btn" onClick={() => void loadAiSummary()} disabled={ai.loading}>
+                {ai.loading ? 'Thinking…' : 'Explain with AI'}
+              </button>
+            )}
+            {ai.error && <p className="error">{ai.error}</p>}
+          </div>
+
           <div className="identifier-chips">
             {cluster.matched_identifiers.map((m, i) => (
               <span className="chip" key={i}>

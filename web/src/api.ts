@@ -29,3 +29,22 @@ export async function getEntityGraph(entityId: string, depth = 1): Promise<Graph
   if (!res.ok) throw new Error(`Failed to fetch graph (HTTP ${res.status})`);
   return (await res.json()) as GraphResponse;
 }
+
+export interface ClusterSummaryResponse {
+  cluster_id: string;
+  summary: string | null;
+  model: string | null;
+  cached: boolean;
+  error: string | null;
+}
+
+export async function getClusterSummary(
+  clusterId: string,
+  refresh = false,
+): Promise<ClusterSummaryResponse> {
+  const res = await fetch(
+    `${BASE}/clusters/${clusterId}/summary${refresh ? '?refresh=1' : ''}`,
+  );
+  if (!res.ok) throw new Error(`Failed to fetch AI summary (HTTP ${res.status})`);
+  return (await res.json()) as ClusterSummaryResponse;
+}

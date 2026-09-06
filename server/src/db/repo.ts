@@ -393,3 +393,48 @@ export async function getEntityGraph(
     truncated: total > entityIds.length,
   };
 }
+
+// ---- Cluster AI summary (Task 8) ----
+
+export interface ClusterForSummary {
+  id: string;
+  score: number;
+  explanation: Array<{ signal_type: string; points: number; human_readable_reason: string }>;
+  ai_summary: string | null;
+  ai_summary_model: string | null;
+  input_type: string;
+  input_value: string;
+}
+
+export async function getClusterForSummary(
+  cluster_id: string,
+  exec: Queryable = pool,
+): Promise<ClusterForSummary | null> {
+  const res = await exec.query<
+    ClusterForSummary & Record<string, unknown>
+  >(
+    `SELECT c.id, c.score::text AS score, c.explanation, c.ai_summary, c.ai_summary_model,
+            i.input_type, i.input_value
+     FROM match_clusters c
+     JOIN investigations i ON i.id = c.investigation_id
+     WHERE c.id = $1`,
+    [cluster_id],
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  return { ...row, score: Number(row.score) };
+}
+
+export async function saveClusterSummary(
+  cluster_id: string,
+  summary: string,
+  model: string,
+  exec: Queryable = pool,
+): Promise<void> {
+  await exec.query(
+    `UPDATE match_clusters
+     SET ai_summary = $2, ai_summary_model = $3, ai_summary_at = now()
+     WHERE id = $1`,
+    [cluster_id, summary, model],
+  );
+}
