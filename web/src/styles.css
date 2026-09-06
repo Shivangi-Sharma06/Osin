@@ -1,0 +1,237 @@
+/* Task 5 baseline styles — Task 12 is the dedicated polish pass. */
+:root {
+  color-scheme: dark;
+  --bg: #121214;
+  --panel: #1a1a1e;
+  --panel-2: #202026;
+  --border: #2c2c33;
+  --text: #e6e6ea;
+  --text-dim: #9a9aa4;
+  --accent: #a5a1f2;
+  --teal: #6fc7b6;
+  --amber: #d9b26a;
+  --rose: #e08a8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+.app-header h1 {
+  margin: 0;
+  letter-spacing: 0.08em;
+  font-size: 28px;
+  color: var(--accent);
+}
+
+.subtitle {
+  margin: 6px 0 32px;
+  color: var(--text-dim);
+  max-width: 52ch;
+}
+
+.search-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.search-row input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 11px 14px;
+  font-size: 15px;
+}
+
+.search-row input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.search-btn {
+  background: var(--accent);
+  border: none;
+  color: #141418;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.search-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: var(--rose);
+  margin: 10px 0 0;
+}
+
+.status {
+  color: var(--text-dim);
+  margin-top: 24px;
+}
+
+.results h2 {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin: 32px 0 12px;
+}
+
+.cluster {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.cluster-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.score {
+  font-size: 30px;
+  font-weight: 700;
+  min-width: 84px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+}
+
+.band-high .score { color: var(--teal); }
+.band-medium .score { color: var(--amber); }
+.band-low .score { color: var(--rose); }
+
+.cluster-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.confidence {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: capitalize;
+}
+
+.expand-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.explanation {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.explanation-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.explanation-list li.positive .points { color: var(--teal); }
+.explanation-list li.negative .points { color: var(--rose); }
+.explanation-list li.neutral .points { color: var(--text-dim); }
+
+.points {
+  display: inline-block;
+  min-width: 42px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.signal {
+  color: var(--accent);
+  font-size: 13px;
+  margin-right: 8px;
+}
+
+.reason {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.identifier-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chip {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.chip a {
+  color: var(--accent);
+  text-decoration: none;
+  margin-left: 4px;
+}

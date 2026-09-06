@@ -14,7 +14,8 @@ export async function buildApp() {
     time: new Date().toISOString(),
   }));
 
-  await app.register(investigationRoutes);
+  // All v1 routes live under /api (the vite dev proxy forwards /api/* here).
+  await app.register(investigationRoutes, { prefix: '/api' });
 
   return app;
 }

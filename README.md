@@ -39,6 +39,10 @@ cp .env.example .env    # adjust if needed (GITHUB_TOKEN recommended for real ra
 npm install
 npm run db:migrate      # applies server/migrations/*.sql
 npm run db:verify       # inserts+queries a dummy row in every table, then rolls back
-npm run dev:server      # API on http://127.0.0.1:4000
 npm test                # scoring engine unit tests
+
+# three processes (Task 5+):
+npm run dev:server      # API on http://127.0.0.1:4000 (routes under /api)
+npm run dev:worker      # BullMQ worker: collector -> normalize -> score -> match_clusters
+npm run dev:web         # dashboard on http://127.0.0.1:5174 (proxies /api to :4000)
 ```
