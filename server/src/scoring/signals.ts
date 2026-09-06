@@ -1,0 +1,172 @@
+import { cosineSimilarity, embedText, normalizeText, normalizedSimilarity } from './textSimilarity.js';
+import type { ExplanationEntry, ScoringEvidence } from './types.js';
+
+export interface CandidateRef {
+  value: string;
+  platform: string;
+}
+
+// ---- Weights (single source of truth for signal scoring) ----
+export const WEIGHTS = {
+  existence: 20,
+  usernameFull: 40,
+  usernameMismatch: -8,
+  usernameSimilarityFloor: 0.6,
+  bioFull: 30,
+  bioPositiveFloor: 0.55,
+  bioContradictionCeiling: 0.35,
+  bioContradictionPoints: -12,
+  bioMinCharsForContradiction: 40,
+  nameFull: 10,
+  namePartial: 5,
+  nameMismatch: -10,
+} as const;
+
+/** Positive base signal: a real public profile exists for the searched identifier. */
+export function evaluateProfileExistence(evidence: ScoringEvidence[]): ExplanationEntry | null {
+  const platforms = evidence
+    .filter((e) => e.signal_type === 'platform_profile_exists')
+    .map((e) => e.source_platform);
+  if (platforms.length === 0) return null;
+  return {
+    signal_type: 'platform_profile_exists',
+    points: WEIGHTS.existence,
+    human_readable_reason: `Verified public profile${platforms.length > 1 ? 's' : ''} exist on ${platforms.join(', ')}.`,
+  };
+}
+
+/**
+ * Username edit-distance signal (Levenshtein + Jaro-Winkler).
+ * Strong similarity supports the match; substantial difference is a
+ * contradicting signal with negative weight.
+ */
+export function evaluateUsernameSignal(
+  searched: string,
+  candidates: CandidateRef[],
+): ExplanationEntry | null {
+  if (!searched.trim() || candidates.length === 0) return null;
+
+  let best: { sim: number; candidate: CandidateRef } | null = null;
+  for (const candidate of candidates) {
+    const sim = normalizedSimilarity(normalizeText(searched), normalizeText(candidate.value));
+    if (!best || sim > best.sim) best = { sim, candidate };
+  }
+  if (!best) return null;
+
+  if (best.sim >= 0.999) {
+    return {
+      signal_type: 'username_match',
+      points: WEIGHTS.usernameFull,
+      human_readable_reason: `Username "${best.candidate.value}" on ${best.candidate.platform} matches the searched username exactly.`,
+    };
+  }
+  if (best.sim >= WEIGHTS.usernameSimilarityFloor) {
+    return {
+      signal_type: 'username_similarity',
+      points: Math.round(WEIGHTS.usernameFull * best.sim),
+      human_readable_reason: `Username "${best.candidate.value}" on ${best.candidate.platform} closely resembles the searched username "${searched}" (similarity ${best.sim.toFixed(2)}).`,
+    };
+  }
+  return {
+    signal_type: 'username_mismatch',
+    points: WEIGHTS.usernameMismatch,
+    human_readable_reason: `Best matching username "${best.candidate.value}" on ${best.candidate.platform} differs substantially from "${searched}" (similarity ${best.sim.toFixed(2)}), which argues against this being the same person.`,
+  };
+}
+
+/** Name token-overlap signal; disjoint names are a contradicting signal. */
+export function evaluateNameSignal(
+  referenceName: string | null,
+  candidates: CandidateRef[],
+): ExplanationEntry | null {
+  if (!referenceName?.trim() || candidates.length === 0) return null;
+
+  const refTokens = normalizeText(referenceName).split(' ').filter(Boolean);
+  let best: { jaccard: number; candidate: CandidateRef } | null = null;
+  for (const candidate of candidates) {
+    const tokens = normalizeText(candidate.value).split(' ').filter(Boolean);
+    const overlap = refTokens.filter((t) => tokens.includes(t)).length;
+    const union = new Set([...refTokens, ...tokens]).size;
+    const jaccard = union === 0 ? 0 : overlap / union;
+    if (!best || jaccard > best.jaccard) best = { jaccard, candidate };
+  }
+  if (!best) return null;
+
+  if (best.jaccard >= 0.999) {
+    return {
+      signal_type: 'name_match',
+      points: WEIGHTS.nameFull,
+      human_readable_reason: `Profile name "${best.candidate.value}" on ${best.candidate.platform} matches the reference name "${referenceName.trim()}".`,
+    };
+  }
+  if (best.jaccard >= 0.5) {
+    return {
+      signal_type: 'name_partial_match',
+      points: WEIGHTS.namePartial,
+      human_readable_reason: `Profile name "${best.candidate.value}" on ${best.candidate.platform} partially overlaps the reference name "${referenceName.trim()}".`,
+    };
+  }
+  return {
+    signal_type: 'name_mismatch',
+    points: WEIGHTS.nameMismatch,
+    human_readable_reason: `Profile name "${best.candidate.value}" on ${best.candidate.platform} shares nothing with the reference name "${referenceName.trim()}" — evidence against a match.`,
+  };
+}
+
+/**
+ * Bio text-similarity signal: hashed-n-gram embeddings + cosine similarity.
+ * Very low similarity between substantial bios is treated as contradicting.
+ */
+export function evaluateBioSignal(
+  referenceBio: string | null,
+  candidates: CandidateRef[],
+): ExplanationEntry | null {
+  if (candidates.length === 0) return null;
+
+  if (!referenceBio?.trim()) {
+    return {
+      signal_type: 'bio_similarity',
+      points: 0,
+      human_readable_reason: `Candidate profile bio(s) available on ${candidates.map((c) => c.platform).join(', ')}, but no reference bio was provided for comparison.`,
+    };
+  }
+
+  const refVec = embedText(referenceBio);
+  let best: { sim: number; candidate: CandidateRef } | null = null;
+  for (const candidate of candidates) {
+    const sim = cosineSimilarity(refVec, embedText(candidate.value));
+    if (!best || sim > best.sim) best = { sim, candidate };
+  }
+  if (!best) return null;
+
+  const pct = best.sim.toFixed(2);
+  if (best.sim >= WEIGHTS.bioPositiveFloor) {
+    return {
+      signal_type: 'bio_similarity',
+      points: Math.round(WEIGHTS.bioFull * best.sim),
+      human_readable_reason: `Bio text on ${best.candidate.platform} strongly resembles the reference bio (cosine similarity ${pct}).`,
+    };
+  }
+  if (best.sim >= WEIGHTS.bioContradictionCeiling) {
+    return {
+      signal_type: 'bio_similarity',
+      points: 0,
+      human_readable_reason: `Bio on ${best.candidate.platform} only weakly resembles the reference bio (cosine similarity ${pct}) — inconclusive.`,
+    };
+  }
+  if (
+    referenceBio.trim().length >= WEIGHTS.bioMinCharsForContradiction &&
+    best.candidate.value.trim().length >= WEIGHTS.bioMinCharsForContradiction
+  ) {
+    return {
+      signal_type: 'bio_contradiction',
+      points: WEIGHTS.bioContradictionPoints,
+      human_readable_reason: `Bio on ${best.candidate.platform} is substantially different from the reference bio (cosine similarity ${pct}) — the two profiles describe different people.`,
+    };
+  }
+  return {
+    signal_type: 'bio_similarity',
+    points: 0,
+    human_readable_reason: `Bio on ${best.candidate.platform} differs from the (short) reference bio (cosine similarity ${pct}) — inconclusive.`,
+  };
+}
