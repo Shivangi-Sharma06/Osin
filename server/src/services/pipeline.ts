@@ -4,6 +4,7 @@ import { scoreCluster } from '../scoring/engine.js';
 import type { ScoringEvidence, ScoringIdentifier } from '../scoring/types.js';
 import { publishProgress } from '../queue/events.js';
 import { enabledCollectorsFor } from '../collectors/registry.js';
+import { UsernameFanoutCollector } from '../collectors/usernameFanout.js';
 import type { InputType } from '../collectors/types.js';
 import {
   createEntity,
@@ -121,6 +122,82 @@ export async function runInvestigationPipeline(investigationId: string): Promise
           error: message,
         });
         // Isolate collector failures — remaining collectors still run.
+      }
+    }
+
+    // Task 9: name dorking never produces results directly — its candidate
+    // usernames are fed back into the username fan-out pipeline for scored checks.
+    if (inputType === 'name') {
+      const candidateUsernames = new Set<string>();
+      for (const e of scoringEvidence) {
+        if (e.signal_type !== 'search_engine_candidates') continue;
+        const raw = e.raw_data as { candidates?: Array<{ username?: string }> };
+        for (const c of raw.candidates ?? []) {
+          if (typeof c.username === 'string' && c.username) candidateUsernames.add(c.username);
+        }
+      }
+
+      const fanout = new UsernameFanoutCollector();
+      let expanded = 0;
+      for (const candidate of candidateUsernames) {
+        if (expanded >= 5) break;
+        expanded++;
+        await publishProgress(investigationId, {
+          type: 'collector_started',
+          platform: `fanout:${candidate}`,
+        });
+        try {
+          const r = await fanout.fetch({
+            input_type: 'username',
+            input_value: candidate,
+            investigation_id: investigationId,
+          });
+          if (r.found) {
+            foundAny = true;
+            for (const draft of r.identifiers) {
+              await upsertIdentifierForEntity(entity.id, draft);
+              scoringIdentifiers.push({
+                identifier_type: draft.identifier_type,
+                value: draft.value,
+                platform: draft.platform,
+                metadata: draft.metadata ?? {},
+              });
+            }
+            await insertEvidenceSignals({
+              investigation_id: investigationId,
+              entity_id: entity.id,
+              collector: r.collector,
+              drafts: r.evidence,
+            });
+            for (const e of r.evidence) {
+              scoringEvidence.push({
+                signal_type: e.signal_type,
+                source_platform: e.source_platform,
+                raw_data: e.raw_data ?? {},
+              });
+            }
+          }
+          await publishProgress(investigationId, {
+            type: 'collector_completed',
+            platform: `fanout:${candidate}`,
+            found: r.found,
+            reason: r.unavailable_reason ?? null,
+          });
+        } catch (err) {
+          const message = (err as Error).message ?? String(err);
+          await recordAudit({
+            investigation_id: investigationId,
+            actor: 'collector:username_fanout',
+            action: 'collector_error',
+            subject: candidate,
+            details: { error: message },
+          });
+          await publishProgress(investigationId, {
+            type: 'collector_error',
+            platform: `fanout:${candidate}`,
+            error: message,
+          });
+        }
       }
     }
 

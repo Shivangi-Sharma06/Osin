@@ -41,7 +41,12 @@ export interface CollectorConfig {
 
 export interface CollectorsConfig {
   github: CollectorConfig;
-  // New collectors (Tasks 9/11) add their keys here.
+  username_fanout: CollectorConfig;
+  official_social: CollectorConfig;
+  email: CollectorConfig;
+  phone: CollectorConfig;
+  name_search: CollectorConfig;
+  // New collectors add their keys here.
   [key: string]: CollectorConfig;
 }
 
@@ -56,6 +61,9 @@ export const config = {
   githubToken: process.env.GITHUB_TOKEN ?? '',
   groqApiKey: process.env.GROQ_API_KEY ?? '',
   groqModel: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+  /** Official X API bearer token (v2). Without it, X is reported as
+   * "unavailable via public/official access" — never scraped. */
+  xBearerToken: process.env.X_BEARER_TOKEN ?? '',
 
   // Edges below this confidence % are hidden in the graph by default (Task 6).
   edgeVisibilityThreshold: 40,
@@ -65,6 +73,26 @@ export const config = {
     github: {
       enabled: boolEnv('OSIN_COLLECTOR_GITHUB_ENABLED', true),
       requestsPerMinute: numEnv('OSIN_COLLECTOR_GITHUB_RPM', 15),
+    },
+    username_fanout: {
+      enabled: boolEnv('OSIN_COLLECTOR_USERNAME_FANOUT_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_USERNAME_FANOUT_RPM', 10),
+    },
+    official_social: {
+      enabled: boolEnv('OSIN_COLLECTOR_OFFICIAL_SOCIAL_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_OFFICIAL_SOCIAL_RPM', 10),
+    },
+    email: {
+      enabled: boolEnv('OSIN_COLLECTOR_EMAIL_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_EMAIL_RPM', 10),
+    },
+    phone: {
+      enabled: boolEnv('OSIN_COLLECTOR_PHONE_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_PHONE_RPM', 20),
+    },
+    name_search: {
+      enabled: boolEnv('OSIN_COLLECTOR_NAME_SEARCH_ENABLED', true),
+      requestsPerMinute: numEnv('OSIN_COLLECTOR_NAME_SEARCH_RPM', 10),
     },
   } as CollectorsConfig,
 };

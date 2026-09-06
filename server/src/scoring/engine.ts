@@ -1,6 +1,7 @@
 import {
   evaluateBioSignal,
   evaluateNameSignal,
+  evaluatePhoneSignal,
   evaluateProfileExistence,
   evaluateUsernameSignal,
   type CandidateRef,
@@ -47,6 +48,19 @@ export function scoreCluster(input: ScoringInput): ScoreResult {
 
   const existence = evaluateProfileExistence(input.evidence);
   if (existence) entries.push(existence);
+
+  // Phone-specific signal (Task 9): validated + E.164-normalized number.
+  if (input.input_type === 'phone') {
+    const phoneCandidates = input.identifiers
+      .filter((i) => i.identifier_type === 'phone')
+      .map((i) => ({
+        value: i.value,
+        platform: i.platform,
+        country: typeof i.metadata?.country === 'string' ? (i.metadata.country as string) : null,
+      }));
+    const phoneEntry = evaluatePhoneSignal(searched, phoneCandidates);
+    if (phoneEntry) entries.push(phoneEntry);
+  }
 
   const usernameEntry = evaluateUsernameSignal(
     searched,

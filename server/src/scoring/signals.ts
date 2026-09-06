@@ -9,6 +9,7 @@ export interface CandidateRef {
 // ---- Weights (single source of truth for signal scoring) ----
 export const WEIGHTS = {
   existence: 20,
+  phoneValid: 30,
   usernameFull: 40,
   usernameMismatch: -8,
   usernameSimilarityFloor: 0.6,
@@ -22,16 +23,38 @@ export const WEIGHTS = {
   nameMismatch: -10,
 } as const;
 
-/** Positive base signal: a real public profile exists for the searched identifier. */
+/** Positive base signal: a real public profile/record exists for the searched identifier. */
 export function evaluateProfileExistence(evidence: ScoringEvidence[]): ExplanationEntry | null {
+  const EXISTENCE_SIGNALS = new Set(['platform_profile_exists', 'email_profile_exists']);
   const platforms = evidence
-    .filter((e) => e.signal_type === 'platform_profile_exists')
+    .filter((e) => EXISTENCE_SIGNALS.has(e.signal_type))
     .map((e) => e.source_platform);
-  if (platforms.length === 0) return null;
+  const unique = [...new Set(platforms)];
+  if (unique.length === 0) return null;
   return {
     signal_type: 'platform_profile_exists',
     points: WEIGHTS.existence,
-    human_readable_reason: `Verified public profile${platforms.length > 1 ? 's' : ''} ${platforms.length > 1 ? 'exist' : 'exists'} on ${platforms.join(', ')}.`,
+    human_readable_reason: `Verified public record${unique.length > 1 ? 's' : ''} ${unique.length > 1 ? 'exist' : 'exists'} on ${unique.join(', ')}.`,
+  };
+}
+
+/**
+ * Phone normalization signal (Task 9): a valid E.164-normalized number that
+ * matches the searched digits supports the match with structured evidence.
+ */
+export function evaluatePhoneSignal(
+  searched: string,
+  candidates: Array<{ value: string; platform: string; country: string | null }>,
+): ExplanationEntry | null {
+  if (!searched.trim() || candidates.length === 0) return null;
+  const digits = (s: string): string => s.replace(/[^\d]/g, '');
+  const searchedDigits = digits(searched);
+  const match = candidates.find((c) => digits(c.value) === searchedDigits);
+  if (!match) return null;
+  return {
+    signal_type: 'phone_normalized_match',
+    points: WEIGHTS.phoneValid,
+    human_readable_reason: `Phone number is valid and normalized to ${match.value}${match.country ? ` (country: ${match.country})` : ''}.`,
   };
 }
 
